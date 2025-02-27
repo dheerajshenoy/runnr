@@ -1,4 +1,5 @@
 #include "MenuScene.hpp"
+#include <raylib.h>
 
 MenuScene::MenuScene()
 {
@@ -21,10 +22,14 @@ MenuScene::MenuScene()
 
 void MenuScene::render()
 {
+    BeginDrawing();
+    ClearBackground(SKYBLUE);
     DrawText("RunnR", 10, 20, 50, PURPLE);
     m_play_btn->render();
     m_settings_btn->render();
     m_exit_btn->render();
+
+    EndDrawing();
 }
 
 void MenuScene::update(const float &dt)

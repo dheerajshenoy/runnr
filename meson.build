@@ -1,6 +1,6 @@
 project('Runnr', 'cpp',
   default_options: ['cpp_std=c++20',
-    'buildtype=debug', 
+    'buildtype=debug',
     'cpp_args=-Wall -Wextra -Wpedantic -g3 -O0 -DDEBUG'
   ]
        )
@@ -15,7 +15,8 @@ sources = files(
     'src/MenuScene.cpp',
     'src/GameScene.cpp',
     'src/Button.cpp',
-    'src/GameOverScene.cpp'
+    'src/GameOverScene.cpp',
+    'src/Timer.cpp'
 
 )
 

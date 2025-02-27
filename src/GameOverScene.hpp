@@ -9,7 +9,7 @@
 class GameOverScene : public Scene {
 
 public:
-    GameOverScene();
+    GameOverScene(const int &score);
     ~GameOverScene();
     void render() override;
     void update(const float &dt) override;
@@ -18,4 +18,5 @@ private:
     Button *m_restart_btn;
     Button *m_exit_btn;
     Sound m_game_over_sound;
+    int m_score;
 };

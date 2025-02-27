@@ -25,7 +25,6 @@ void Runnr::initSettings() noexcept {
     SetTargetFPS(m_fps);
 }
 
-
 void Runnr::run() noexcept {
 
     while (!m_game_close) {
@@ -40,13 +39,7 @@ void Runnr::run() noexcept {
         this->update(dt);
         SceneManager::GetInstance().update(dt);
 
-        BeginDrawing();
-
-            ClearBackground(BLACK);
-
         SceneManager::GetInstance().render();
-
-        EndDrawing();
     }
 }
 

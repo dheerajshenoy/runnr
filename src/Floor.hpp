@@ -16,6 +16,9 @@ inline void setPos(const Vector3 &pos) noexcept { m_pos = pos; }
 inline Vector3 pos() const noexcept { return m_pos; }
 inline void setColor(const Color &color) noexcept { m_color = color; }
 inline Color color() const noexcept { return m_color; }
+inline void setShader(const Shader &shader) noexcept {
+    m_model.materials[0].shader = shader;
+}
 
 void update(const float &dt) noexcept;
 void render() noexcept;

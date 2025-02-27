@@ -24,6 +24,8 @@ public:
     void initScenes() noexcept;
     void update(const float &dt) noexcept;
     void exit() noexcept;
+    inline int width() const noexcept { return m_wwidth; }
+    inline int height() const noexcept { return m_wheight; }
 
 private:
     Runnr() noexcept;

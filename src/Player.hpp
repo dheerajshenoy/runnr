@@ -24,6 +24,9 @@ inline bool isOnGround() const noexcept { return m_is_on_ground; }
 
 inline void setPos(const Vector3 &pos) noexcept { m_pos = pos; }
 inline Vector3 pos() const noexcept { return m_pos; }
+inline void setShader(const Shader &shader) noexcept {
+    m_model.materials[0].shader = shader;
+}
 
 private:
     float m_speed;
@@ -31,7 +34,6 @@ private:
     Mesh m_mesh;
     Model m_model;
     Vector3 m_size;
-    Material m_material;
     float m_speedY;
     float m_gravity;
     float m_jump_force;
