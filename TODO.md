@@ -1,0 +1,4 @@
+- [ ] Add trails
+- [ ] Enemies
+- [ ] Sound
+- [ ] Menu
