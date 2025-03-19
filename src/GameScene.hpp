@@ -21,6 +21,7 @@
 #include <rlgl.h>
 #include <algorithm>
 #include "Box.hpp"
+#include <time.h>
 
 class GameScene : public Scene {
 
@@ -80,6 +81,9 @@ class GameScene : public Scene {
     void deletePlatform(Platform *platform) noexcept;
 
     float lastSpawnZ { 50.0f };
+    float m_length { 50.0f };
+
+    time_t m_seed;
 
     Box *box { nullptr };
 };

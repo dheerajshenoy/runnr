@@ -1,10 +1,11 @@
 #include "Platform.hpp"
 #include <raylib.h>
 
+#define RAD2DEG 57.2958
 
 Platform::Platform(const btVector3 &position,
                    const btVector3 &dimension,
-    const float &speed)
+                   const float &speed)
     : m_speed(speed)
 {
     model = LoadModelFromMesh(GenMeshCube(dimension.getX(), dimension.getY(), dimension.getZ()));
@@ -68,14 +69,34 @@ void Platform::render() noexcept
 
     body->getMotionState()->getWorldTransform(transform);
     auto pos = transform.getOrigin();
+    auto rotation = transform.getRotation();
+    Vector3 axis = { rotation.getAxis().getX(),
+        rotation.getAxis().getY(),
+        rotation.getAxis().getZ() };
+    float angle = rotation.getAngle() * RAD2DEG;
     DrawModelEx(model,
                 (Vector3) { pos.getX(), pos.getY(), pos.getZ()},
-                (Vector3) { 0.0f, 0.0f, 1.0f },
-                transform.getRotation().getZ(), Vector3One(), RED);
+                axis,
+                angle, Vector3One(), RED);
 }
 
-bool Platform::isOffScreen() noexcept
+bool Platform::isOffScreen(const float &zOffset) noexcept
 {
     return transform.getOrigin().getZ() -
-        static_cast<btBoxShape*>(colShape)->getHalfExtentsWithMargin().getZ() - 15 > 0.0f;
+        static_cast<btBoxShape*>(colShape)->getHalfExtentsWithMargin().getZ() - zOffset > 0.0f;
+}
+
+
+void Platform::setRotation(const btVector3 &axis,
+                           const btScalar &angle) noexcept
+{
+    btQuaternion rotation;
+    rotation.setRotation(axis, angle);
+    transform.setRotation(rotation);
+
+    if (body)
+    {
+        body->setWorldTransform(transform);
+        body->getMotionState()->setWorldTransform(transform);
+    }
 }

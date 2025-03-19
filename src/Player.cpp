@@ -1,7 +1,4 @@
 #include "Player.hpp"
-#include <bullet/BulletCollision/CollisionDispatch/btCollisionCreateFunc.h>
-#include <bullet/BulletCollision/CollisionDispatch/btCollisionObject.h>
-#include <raylib.h>
 
 Player::Player(const btVector3 &position, btDiscreteDynamicsWorld *world)
     : world(world)
@@ -30,7 +27,7 @@ Player::Player(const btVector3 &position, btDiscreteDynamicsWorld *world)
     body->setRestitution(m_restitution);
     body->setActivationState(DISABLE_DEACTIVATION);
 
-    jumpForce = btVector3(0, 1.0f, 0.0f); // Adjust the force as needed
+    jumpForce = btVector3(0, 5.0f, 0.0f); // Adjust the force as needed
 }
 
 void Player::move(const MoveDirection &dir) noexcept
@@ -56,7 +53,7 @@ void Player::move(const MoveDirection &dir) noexcept
 
 void Player::jump() noexcept
 {
-    if (isOnGround())
+    if (isPlayerOnGround())
     {
         body->applyCentralImpulse(jumpForce);
     }
@@ -70,6 +67,7 @@ bool Player::isOnGround() noexcept
 
     float rayLength = 2.0f;
     btVector3 rayEnd = origin + btVector3(0, -rayLength, 0);
+
 
     btCollisionWorld::ClosestRayResultCallback rayCallback(origin, rayEnd);
     world->rayTest(origin, rayEnd, rayCallback);
@@ -94,4 +92,32 @@ btTransform Player::position() noexcept
 {
     body->getMotionState()->getWorldTransform(transform);
     return transform;
+}
+
+bool Player::isPlayerOnGround() noexcept
+{
+    int numManifolds = world->getDispatcher()->getNumManifolds();
+    for (int i = 0; i < numManifolds; i++) {
+        btPersistentManifold* contactManifold = world->getDispatcher()->getManifoldByIndexInternal(i);
+
+        const btCollisionObject* objA = contactManifold->getBody0();
+        const btCollisionObject* objB = contactManifold->getBody1();
+
+        if (objA == body || objB == body) {
+            for (int j = 0; j < contactManifold->getNumContacts(); j++) {
+                btManifoldPoint& pt = contactManifold->getContactPoint(j);
+
+                // Check if the contact is below the player
+                if (pt.getPositionWorldOnB().getY() < body->getWorldTransform().getOrigin().getY()) {
+                    btVector3 normal = pt.m_normalWorldOnB;
+
+                    // Check if the normal points upward (allowing slight angles)
+                    if (normal.dot(btVector3(0, 1, 0)) > 0.5f) {
+                        return true;
+                    }
+                }
+            }
+        }
+    }
+    return false;
 }

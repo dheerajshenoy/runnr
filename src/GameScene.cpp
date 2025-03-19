@@ -1,8 +1,5 @@
 #include "GameScene.hpp"
-#include <bullet/BulletCollision/BroadphaseCollision/btBroadphaseProxy.h>
-#include <bullet/BulletCollision/CollisionShapes/btSphereShape.h>
 #include <raylib.h>
-
 
 GameScene::GameScene()
     : Scene()
@@ -12,6 +9,8 @@ GameScene::GameScene()
     initPhysics();
     initPlayer();
     spawnPlatform();
+    m_seed = time(nullptr);
+    SetRandomSeed(m_seed);
 }
 
 GameScene::~GameScene()
@@ -52,10 +51,13 @@ GameScene::~GameScene()
 
 void GameScene::update(const float &dt)
 {
+    UpdateCamera(&m_camera, CAMERA_CUSTOM);
     m_dynamicsWorld->stepSimulation(dt, 10);
 
-    if (m_player->isOnGround()) {
-        m_player->is_on_ground = true;
+    if (!m_player->is_on_ground) {
+        if (m_player->isPlayerOnGround()) {
+            m_player->is_on_ground = true;
+        }
     }
 
     Vector3 cameraPos = m_camera.position;
@@ -66,26 +68,20 @@ void GameScene::update(const float &dt)
     SetShaderValue(m_shadowShader, m_lightDirLoc, &m_lightDir, SHADER_UNIFORM_VEC3);
 
     cameraFollowPlayer();
-
     updatePlatforms(dt);
-
     handleInput();
 }
 
 void GameScene::render()
 {
     // shaderRun(); // TODO: Shadow mapping
-
-    UpdateCamera(&m_camera, CAMERA_CUSTOM);
+    // m_player->model.materials[0].shader = m_shadowShader;
+    BeginDrawing();
     ClearBackground(BLACK);
     BeginMode3D(m_camera);
-
     DrawScene();
-
     EndMode3D();
-
     DrawText(TextFormat("FPS: %d", GetFPS()), 10, 10, 20.0, BLACK);
-
     EndDrawing();
 }
 
@@ -138,7 +134,7 @@ void GameScene::handleInput() noexcept
 
 void GameScene::initPlayer() noexcept
 {
-    m_player = new Player(btVector3(0, 10.0f, 0), m_dynamicsWorld);
+    m_player = new Player(btVector3(0, 5.0f, 0), m_dynamicsWorld);
     m_player->model.materials[0].shader = m_shadowShader;
     m_dynamicsWorld->addRigidBody(m_player->body);
 }
@@ -146,14 +142,15 @@ void GameScene::initPlayer() noexcept
 void GameScene::spawnPlatform() noexcept
 {
     float randomX = GetRandomValue(-10, 10);
-    float length = 50.0f;
-    float gap = GetRandomValue(5, 10);
-    float nextZ = lastSpawnZ - gap - length;
-    printf("%f", lastSpawnZ);
+    m_length = GetRandomValue(20, 50);
+    float gap = GetRandomValue(0, 2);
+    float nextZ = lastSpawnZ - gap - m_length;
+    float angle = GetRandomValue(2, 10);
 
     btVector3 pos(randomX, -5.0f, nextZ);
-    btVector3 size(10.0f, 1.0f, length);
+    btVector3 size(10.0f, 1.0f, m_length);
     Platform *platform = new Platform(pos, size);
+    platform->setRotation(btVector3(0, 0, 1), SIMD_PI / angle);
     platform->model.materials[0].shader = m_shadowShader;
     m_dynamicsWorld->addRigidBody(platform->body);
     m_platform_list.push_back(platform);
@@ -188,20 +185,24 @@ void GameScene::initShader() noexcept
 
 void GameScene::shaderRun() noexcept
 {
+    BeginDrawing();
     // First, render all objects into the shadowmap
     // The idea is, we record all the objects' depths (as rendered from the light source's point of view) in a buffer
     // Anything that is "visible" to the light is in light, anything that isn't is in shadow
     // We can later use the depth buffer when rendering everything from the player's point of view
     // to determine whether a given point is "visible" to the light
     SetShaderValue(m_shadowShader, m_shadowShader.locs[SHADER_LOC_VECTOR_VIEW], &m_camera.position, SHADER_UNIFORM_VEC3);
-    BeginDrawing();
     BeginTextureMode(m_shadowMapTexture);
-    ClearBackground(WHITE);
-    BeginMode3D(m_lightCam);
-    m_lightView = rlGetMatrixModelview();
-    m_lightProj = rlGetMatrixProjection();
-    DrawScene();
-    EndMode3D();
+    {
+        ClearBackground(WHITE);
+        BeginMode3D(m_lightCam);
+        {
+            m_lightView = rlGetMatrixModelview();
+            m_lightProj = rlGetMatrixProjection();
+            DrawScene();
+        }
+        EndMode3D();
+    }
     EndTextureMode();
     Matrix lightViewProj = MatrixMultiply(m_lightView, m_lightProj);
 
@@ -285,7 +286,7 @@ void GameScene::updatePlatforms(const float &dt) noexcept
     if (!m_platform_list.empty()) {
         Platform* lastPlatform = m_platform_list.back();
         float lastPlatformZ = lastPlatform->body->getWorldTransform().getOrigin().getZ();
-        if (lastPlatformZ > 10.0f) {
+        if (lastPlatformZ > 5.0f) {
             lastSpawnZ = lastPlatformZ;
             spawnPlatform();
         }
@@ -294,7 +295,7 @@ void GameScene::updatePlatforms(const float &dt) noexcept
     m_platform_list.erase(std::remove_if(m_platform_list.begin(),
                                          m_platform_list.end(),
                                          [this](Platform *platform) {
-                                             if (platform->isOffScreen())
+                                             if (platform->isOffScreen(m_camera.position.z))
                                              {
                                                  deletePlatform(platform);
                                                  return true;

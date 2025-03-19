@@ -25,6 +25,7 @@ class Player {
     void move(const MoveDirection &dir) noexcept;
     void jump() noexcept;
     bool isOnGround() noexcept;
+    bool isPlayerOnGround() noexcept;
 
     btTransform position() noexcept;
 

@@ -15,9 +15,10 @@ class Platform
     btTransform transform;
     Model model;
     void render() noexcept;
-    bool isOffScreen() noexcept;
+    bool isOffScreen(const float &zOffset) noexcept;
     void update(const float &dt) noexcept;
     void cleanup(btDiscreteDynamicsWorld*) noexcept;
+    void setRotation(const btVector3 &axis, const btScalar &angle) noexcept;
 
     private:
     float m_speed { 10.0f };
