@@ -1,7 +1,8 @@
-#include "Runnr.hpp"
+#include "runnr.hpp"
 
-int main(int argc, char *argv[])
+int main (int argc, char *argv[])
 {
-    Runnr::GetInstance().run();
+    runnr r;
+    r.run();
     return 0;
 }
