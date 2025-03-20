@@ -22,7 +22,7 @@ class Platform
 
     private:
     float m_speed { 10.0f };
-    float m_restitution { 0.3f };
+    float m_restitution { 0.0f };
     btCollisionShape* colShape { nullptr };
 
 

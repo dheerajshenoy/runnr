@@ -1,4 +1,8 @@
 #include "GameScene.hpp"
+#include "Components.hpp"
+#include "Entity.hpp"
+#include "PlayerCollisionCallback.hpp"
+#include <bullet/BulletDynamics/Dynamics/btRigidBody.h>
 #include <raylib.h>
 
 GameScene::GameScene()
@@ -11,6 +15,8 @@ GameScene::GameScene()
     spawnPlatform();
     m_seed = time(nullptr);
     SetRandomSeed(m_seed);
+
+    m_player->body->setCcdMotionThreshold(1e-7);
 }
 
 GameScene::~GameScene()
@@ -28,22 +34,12 @@ GameScene::~GameScene()
         delete obj;
     }
 
-    for (int i=0; i < m_platform_list.size(); i++)
-    {
-        Platform* p = m_platform_list.at(i);
-        delete p;
-        p = nullptr;
-    }
-
-    // Clean Player
     delete m_player;
-
     delete m_dynamicsWorld;
     delete m_solver;
     delete m_overlappingPairCache;
     delete m_dispatcher;
     delete m_collisionConfiguration;
-    m_platform_list.clear();
 
     UnloadShader(m_shadowShader);
     UnloadShadowmapRenderTexture(m_shadowMapTexture);
@@ -51,6 +47,9 @@ GameScene::~GameScene()
 
 void GameScene::update(const float &dt)
 {
+
+    PlayerCollisionCallback playerCollisionCallback(m_player);
+    m_dynamicsWorld->contactTest(m_player->body, playerCollisionCallback);
     UpdateCamera(&m_camera, CAMERA_CUSTOM);
     m_dynamicsWorld->stepSimulation(dt, 10);
 
@@ -68,8 +67,10 @@ void GameScene::update(const float &dt)
     SetShaderValue(m_shadowShader, m_lightDirLoc, &m_lightDir, SHADER_UNIFORM_VEC3);
 
     cameraFollowPlayer();
-    updatePlatforms(dt);
     handleInput();
+
+    updatePlatforms(dt);
+    cleanupPlatforms();
 }
 
 void GameScene::render()
@@ -113,8 +114,24 @@ void GameScene::renderSystem() noexcept
     m_player->render();
 
     // draw platforms
-    for (auto &platform : m_platform_list)
-        platform->render();
+    auto view = GetAllEntitiesWith<PlatformComponent>();
+    btTransform transform;
+    for (const auto &e : view)
+    {
+        Entity entity { e, this };
+        auto &render = entity.GetComponent<RenderComponent>();
+        auto &rb = entity.GetComponent<RigidBodyComponent>();
+        auto &size = render.dimension.size;
+        rb.body->getMotionState()->getWorldTransform(transform);
+        auto &pos = transform.getOrigin();
+
+        DrawModel(render.model,
+                  (Vector3) { pos.getX(), pos.getY(), pos.getZ() },
+                  1.0f,
+                  RED);
+    }
+
+    // draw powerups
 }
 
 void GameScene::handleInput() noexcept
@@ -142,18 +159,16 @@ void GameScene::initPlayer() noexcept
 void GameScene::spawnPlatform() noexcept
 {
     float randomX = GetRandomValue(-10, 10);
-    m_length = GetRandomValue(20, 50);
-    float gap = GetRandomValue(0, 2);
+    m_length = GetRandomValue(20, 40);
+    float gap = GetRandomValue(0, 10);
     float nextZ = lastSpawnZ - gap - m_length;
     float angle = GetRandomValue(2, 10);
 
     btVector3 pos(randomX, -5.0f, nextZ);
     btVector3 size(10.0f, 1.0f, m_length);
-    Platform *platform = new Platform(pos, size);
-    platform->setRotation(btVector3(0, 0, 1), SIMD_PI / angle);
-    platform->model.materials[0].shader = m_shadowShader;
-    m_dynamicsWorld->addRigidBody(platform->body);
-    m_platform_list.push_back(platform);
+
+    lastSpawnZ = nextZ;
+    CreatePlatform(pos, size);
 }
 
 void GameScene::initShader() noexcept
@@ -274,43 +289,120 @@ void GameScene::cameraFollowPlayer() noexcept
     m_camera.position.z = pos.getZ() + 10.0f;
 }
 
-void GameScene::updatePlatforms(const float &dt) noexcept
+Entity GameScene::CreateEntity(const std::string &tag) noexcept
 {
+    Entity entity { registry.create(), this };
+    entity.AddComponent<TagComponent>(tag);
+    return entity;
+}
 
-    for (auto &platform : m_platform_list)
+void GameScene::DestroyEntity(Entity entity) noexcept
+{
+    if (entity.HasComponent<RenderComponent>())
     {
-        platform->update(dt);
+        auto& render = entity.GetComponent<RenderComponent>();
+        UnloadModel(render.model);
     }
+    registry.destroy(entity);
+}
 
-    // Spawn new platforms when the last platform is halfway off the screen
-    if (!m_platform_list.empty()) {
-        Platform* lastPlatform = m_platform_list.back();
-        float lastPlatformZ = lastPlatform->body->getWorldTransform().getOrigin().getZ();
-        if (lastPlatformZ > 5.0f) {
-            lastSpawnZ = lastPlatformZ;
-            spawnPlatform();
-        }
-    }
+void GameScene::DestroyEntity(const entt::entity entity) noexcept
+{
+    registry.destroy(entity);
+}
 
-    m_platform_list.erase(std::remove_if(m_platform_list.begin(),
-                                         m_platform_list.end(),
-                                         [this](Platform *platform) {
-                                             if (platform->isOffScreen(m_camera.position.z))
-                                             {
-                                                 deletePlatform(platform);
-                                                 return true;
-                                             }
-                                             return false;
-                                         }), m_platform_list.end());
+void GameScene::CreatePlatform(const btVector3 &pos,
+                               const btVector3 &size) noexcept
+{
+    btTransform transform;
+    auto platform = CreateEntity("Platform");
+    lastPlatformHandle = platform.getHandle();
 
+    platform.AddComponent<PlatformComponent>();
 
+    auto &render = platform.AddComponent<RenderComponent>();
+    auto tmp = size * 0.5;
+    render.dimension.size = tmp;
+    render.model = LoadModelFromMesh(GenMeshCube(size.getX(), size.getY(), size.getZ()));
+    render.model.materials[0].shader = m_shadowShader;
+
+    auto &rb = platform.AddComponent<RigidBodyComponent>();
+    rb.shape = new btBoxShape(size * 0.5);
+
+    transform.setIdentity();
+    transform.setOrigin(pos);
+
+    rb.motionState = new btDefaultMotionState(transform);
+    btRigidBody::btRigidBodyConstructionInfo rbInfo(0.0f, rb.motionState, rb.shape);
+    rb.body = new btRigidBody(rbInfo);
+
+    rb.body->setActivationState(DISABLE_DEACTIVATION);
+
+    m_dynamicsWorld->addRigidBody(rb.body);
+}
+
+void GameScene::CreateRigidBody() noexcept
+{
 
 }
 
-void GameScene::deletePlatform(Platform *platform) noexcept
+void GameScene::updatePlatforms(const float &dt) noexcept
 {
-    if (!platform)
-        return;
+    // Move platforms towards the player
 
-    platform->cleanup(m_dynamicsWorld);
+    auto view = GetAllEntitiesWith<PlatformComponent, RigidBodyComponent>();
+    for (const auto &platform : view)
+    {
+        auto *body = view.get<RigidBodyComponent>(platform).body;
+        btTransform transform;
+        auto *motionState = body->getMotionState();
+        motionState->getWorldTransform(transform);
+        auto &pos = transform.getOrigin();
+        pos.setZ(pos.getZ() + 10.0f * dt);
+        transform.setOrigin(pos);
+        motionState->setWorldTransform(transform);
+        body->setWorldTransform(transform);
+    }
+
+    // Check and Spawn new Platforms
+
+    btTransform transform;
+    auto &rb = view.get<RigidBodyComponent>(lastPlatformHandle);
+    rb.body->getMotionState()->getWorldTransform(transform);
+
+    float lastPlatformZ = transform.getOrigin().getZ();
+
+    lastSpawnZ = lastPlatformZ;
+
+    if (lastPlatformZ > )
+    {
+        spawnPlatform();
+    }
+
+}
+
+void GameScene::cleanupPlatforms() noexcept
+{
+    btTransform transform;
+    std::vector<Entity> entitiesToDelete;
+    auto view = GetAllEntitiesWith<PlatformComponent, RigidBodyComponent>();
+    for (auto platform : view)
+    {
+        Entity entity { platform, this };
+        auto &rb = entity.GetComponent<RigidBodyComponent>();
+        auto *body = rb.body;
+        body->getMotionState()->getWorldTransform(transform);
+        auto &pos = transform.getOrigin();
+
+        // TODO: Cleanup platforms
+        // if (pos.getZ() > 0.0f)
+        // {
+        //     m_dynamicsWorld->removeRigidBody(body);
+        //     entitiesToDelete.push_back(entity);
+        // }
+
+    }
+
+    for (auto &entity : entitiesToDelete)
+        DestroyEntity(entity);
 }

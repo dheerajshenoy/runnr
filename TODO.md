@@ -2,3 +2,5 @@
 - [ ] Enemies
 - [ ] Sound
 - [ ] Menu
+- [ ] Shadow
+- [ ] Unload entity model

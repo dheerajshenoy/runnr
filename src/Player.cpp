@@ -27,7 +27,9 @@ Player::Player(const btVector3 &position, btDiscreteDynamicsWorld *world)
     body->setRestitution(m_restitution);
     body->setActivationState(DISABLE_DEACTIVATION);
 
-    jumpForce = btVector3(0, 5.0f, 0.0f); // Adjust the force as needed
+    m_defaultJumpForce= btVector3(0, 5.0f, 0.0f); // Adjust the force as needed
+
+    jumpForce = m_defaultJumpForce;
 }
 
 void Player::move(const MoveDirection &dir) noexcept
@@ -120,4 +122,10 @@ bool Player::isPlayerOnGround() noexcept
         }
     }
     return false;
+}
+
+void Player::applyPowerupEffect(btCollisionObject *powerup) noexcept
+{
+    jumpForce = btVector3(0, 10.0f, 0.0);
+    world->removeCollisionObject(powerup);
 }

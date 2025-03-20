@@ -3,6 +3,7 @@
 #include "bullet.hpp"
 #include <raylib.h>
 #include <raymath.h>
+#include <vector>
 
 class Player {
     public:
@@ -26,11 +27,14 @@ class Player {
     void jump() noexcept;
     bool isOnGround() noexcept;
     bool isPlayerOnGround() noexcept;
+    void applyPowerupEffect(btCollisionObject *powerup) noexcept;
 
     btTransform position() noexcept;
 
     btVector3 jumpForce;
 
     private:
+    btVector3 m_defaultJumpForce;
     float m_restitution { 0.8f };
+
 };

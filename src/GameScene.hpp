@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Scene.hpp"
+
 #include "entt/entt.hpp"
 #include "SceneManager.hpp"
 #include "Player.hpp"
@@ -22,6 +23,9 @@
 #include <algorithm>
 #include "Box.hpp"
 #include <time.h>
+#include "Powerup.hpp"
+#include "PlayerCollisionCallback.hpp"
+#include "Entity.hpp"
 
 class GameScene : public Scene {
 
@@ -36,6 +40,10 @@ class GameScene : public Scene {
         REGULAR = 0,
     };
 
+    Entity CreateEntity(const std::string &tag = std::string()) noexcept;
+    void DestroyEntity(const Entity entity) noexcept;
+    void DestroyEntity(const entt::entity entity) noexcept;
+
     private:
     Player *m_player { nullptr };
     float m_gravity = 10.0f;
@@ -46,9 +54,18 @@ class GameScene : public Scene {
     void initPhysics() noexcept;
     void initShader() noexcept;
     void updatePhysics() noexcept;
+    void updatePlatforms(const float &dt) noexcept;
+    void cleanupPlatforms() noexcept;
     void spawnPlatform() noexcept;
-    entt::registry m_registry;
     Camera3D m_camera { 0 };
+    // 3d Collision Stuff
+    btDefaultCollisionConfiguration *m_collisionConfiguration { nullptr };
+    btCollisionDispatcher *m_dispatcher { nullptr };
+    btBroadphaseInterface *m_overlappingPairCache { nullptr };
+    btSequentialImpulseConstraintSolver *m_solver { nullptr };
+    btDiscreteDynamicsWorld *m_dynamicsWorld { nullptr };
+
+    // Shader Stuff
     Camera3D m_lightCam { 0 };
     int m_lightDirLoc;
 
@@ -56,13 +73,6 @@ class GameScene : public Scene {
     Color m_lightColor { WHITE };
     float m_ambient[4] = {0.1f, 0.1f, 0.1f, 1.0f};
     Shader m_shadowShader;
-
-    btDefaultCollisionConfiguration *m_collisionConfiguration { nullptr };
-    btCollisionDispatcher *m_dispatcher { nullptr };
-    btBroadphaseInterface *m_overlappingPairCache { nullptr };
-    btSequentialImpulseConstraintSolver *m_solver { nullptr };
-    btDiscreteDynamicsWorld *m_dynamicsWorld { nullptr };
-    std::vector<Platform*> m_platform_list;
 
     int m_lightVPLoc;
     int m_shadowMapLoc;
@@ -76,14 +86,21 @@ class GameScene : public Scene {
     void UnloadShadowmapRenderTexture(RenderTexture2D target) noexcept;
     void DrawScene() noexcept;
     void cameraFollowPlayer() noexcept;
-    void updatePlatforms(const float &dt) noexcept;
-
-    void deletePlatform(Platform *platform) noexcept;
 
     float lastSpawnZ { 50.0f };
+    entt::entity lastPlatformHandle { entt::null };
     float m_length { 50.0f };
 
     time_t m_seed;
 
     Box *box { nullptr };
+
+    void CreatePlatform(const btVector3 &pos, const btVector3 &size) noexcept;
+    void CreateRigidBody() noexcept;
+
+template<typename... Components>
+auto GetAllEntitiesWith()
+{
+    return registry.view<Components...>();
+}
 };

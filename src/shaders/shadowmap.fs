@@ -75,6 +75,7 @@ void main()
             if (curDepth - bias > sampleDepth) shadowCounter++;
         }
     }
+
     finalColor = mix(finalColor, vec4(0, 0, 0, 1), float(shadowCounter)/float(numSamples));
 
     // Add ambient lighting whether in shadow or not
