@@ -9,7 +9,8 @@
 
 class Scene;
 
-class Player {
+class Player
+{
     public:
 
     Player(const btVector3 &position, btDiscreteDynamicsWorld*, Scene *scene);
@@ -21,7 +22,16 @@ class Player {
     bool is_on_ground { false };
     btDiscreteDynamicsWorld *world { nullptr };
 
-    enum class MoveDirection {
+    enum class ShapeType
+    {
+        Sphere = 0,
+        Box
+    };
+
+    ShapeType shapeType { ShapeType::Sphere };
+
+    enum class MoveDirection
+    {
         LEFT = 0,
         RIGHT,
     };
@@ -46,5 +56,4 @@ class Player {
     private:
     btVector3 m_defaultJumpForce;
     float m_restitution { 0.8f };
-
 };

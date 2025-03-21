@@ -115,8 +115,7 @@ class GameScene : public Scene {
     void removePowerup(const PowerupComponent::PowerupType &type) noexcept;
     void addPowerup(const PowerupComponent::PowerupType &type) noexcept;
 
-
-    void ShapeShiftPlayer() noexcept;
+    void ShapeShiftPlayer(const Player::ShapeType &type) noexcept;
 
     template<typename... Components>
     auto GetAllEntitiesWith() noexcept {
@@ -124,5 +123,8 @@ class GameScene : public Scene {
     }
 
     ColorRegistry m_colorRegistry;
+
+    void shapeShiftToBox() noexcept;
+    void shapeShiftToSphere() noexcept;
 
 };

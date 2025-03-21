@@ -7,8 +7,19 @@ Player::Player(const btVector3 &position,
                Scene *scene)
     : world(world), scene(scene)
 {
-    model = LoadModelFromMesh(GenMeshSphere(1.0f, 100, 100));
-    colShape = new btSphereShape(btScalar(1.0f));
+
+    switch(shapeType)
+    {
+
+        case ShapeType::Sphere:
+            model = LoadModelFromMesh(GenMeshSphere(1.0f, 100, 100));
+            colShape = new btSphereShape(btScalar(1.0f));
+            break;
+
+        case ShapeType::Box:
+            model = LoadModelFromMesh(GenMeshCube(2.0, 2.0, 2.0));
+            colShape = new btBoxShape(btVector3(1.0, 1.0, 1.0));
+    }
 
     transform.setIdentity();
 
@@ -78,7 +89,6 @@ bool Player::isOnGround() noexcept
     float rayLength = 2.0f;
     btVector3 rayEnd = origin + btVector3(0, -rayLength, 0);
 
-
     btCollisionWorld::ClosestRayResultCallback rayCallback(origin, rayEnd);
     world->rayTest(origin, rayEnd, rayCallback);
 
@@ -94,13 +104,18 @@ void Player::render() noexcept
                    SHADER_UNIFORM_VEC4);
     body->getMotionState()->getWorldTransform(transform);
     auto pos = transform.getOrigin();
+    auto rotation = transform.getRotation();
+    auto axis = rotation.getAxis();
 
     DrawModelEx(model,
-                (Vector3) { pos.getX(),
+                (Vector3) {
+                    pos.getX(),
                     pos.getY(),
-                    pos.getZ() },
-                (Vector3) { 0.0f, 0.0f, 1.0f },
-                transform.getRotation().getZ(), Vector3One(),
+                    pos.getZ()
+                },
+                (Vector3) { 0, axis.getY(), axis.getZ() },
+                rotation.getAngle() * RAD2DEG,
+                Vector3One(),
                 RED);
 }
 

@@ -1,0 +1,3 @@
+/home/neo/Gits/runnr/build/CMakeFiles/Runnr.dir
+/home/neo/Gits/runnr/build/CMakeFiles/edit_cache.dir
+/home/neo/Gits/runnr/build/CMakeFiles/rebuild_cache.dir

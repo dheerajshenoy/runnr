@@ -12,7 +12,6 @@ GameScene::GameScene()
     m_seed = time(nullptr);
     utils::SetRandomSeed(m_seed);
 
-
     // player->body->setCcdMotionThreshold(1e-7);
 }
 
@@ -45,6 +44,7 @@ GameScene::~GameScene()
 void GameScene::update(const float &dt)
 {
 
+    printf("%d\n", player->isPlayerOnGround());
     PlayerCollisionCallback playerCollisionCallback(this);
     dynamicsWorld->contactTest(player->body, playerCollisionCallback);
     UpdateCamera(&m_camera, CAMERA_CUSTOM);
@@ -118,16 +118,29 @@ void GameScene::renderSystem() noexcept
 
 void GameScene::handleInput() noexcept
 {
-    if (IsKeyDown(KEY_A)) {
+    if (IsKeyDown(KEY_A))
+    {
         player->move(Player::MoveDirection::LEFT);
     }
 
-    if (IsKeyDown(KEY_D)) {
+    if (IsKeyDown(KEY_D))
+    {
         player->move(Player::MoveDirection::RIGHT);
     }
 
-    if (IsKeyDown(KEY_SPACE)) {
+    if (IsKeyDown(KEY_SPACE))
+    {
         player->jump();
+    }
+
+    if (IsKeyDown(KEY_ONE))
+    {
+        ShapeShiftPlayer(Player::ShapeType::Box);
+    }
+
+    if (IsKeyDown(KEY_TWO))
+    {
+        ShapeShiftPlayer(Player::ShapeType::Sphere);
     }
 }
 
@@ -602,7 +615,67 @@ void GameScene::renderActivePowerups() noexcept
     }
 }
 
-void GameScene::ShapeShiftPlayer() noexcept
+void GameScene::ShapeShiftPlayer(const Player::ShapeType &type) noexcept
 {
+    switch(type)
+    {
+        case Player::ShapeType::Sphere:
+            shapeShiftToSphere();
+            break;
 
+        case Player::ShapeType::Box:
+            shapeShiftToBox();
+            break;
+    }
+}
+
+void GameScene::shapeShiftToSphere() noexcept
+{
+    if (player->shapeType == Player::ShapeType::Sphere)
+        return;
+
+    if (!player->body)
+        return;
+
+    player->shapeType = Player::ShapeType::Sphere;
+
+    dynamicsWorld->removeRigidBody(player->body);
+    btCollisionShape *sphereShape = new btSphereShape(1.0f);
+
+    auto oldShape = player->body->getCollisionShape();
+    player->body->setCollisionShape(sphereShape);
+    UnloadModel(player->model);
+    player->model = LoadModelFromMesh(GenMeshSphere(1.0, 100, 100));
+    player->model.materials[0].shader = m_shadowShader;
+    player->body->updateInertiaTensor();
+    dynamicsWorld->addRigidBody(player->body);
+
+    delete oldShape;
+}
+
+void GameScene::shapeShiftToBox() noexcept
+{
+    if (player->shapeType == Player::ShapeType::Box)
+        return;
+
+    if (!player->body)
+        return;
+
+    player->shapeType = Player::ShapeType::Box;
+
+    dynamicsWorld->removeRigidBody(player->body);
+    btVector3 boxHalfExtents(1.0f, 1.0f, 1.0f);
+    btCollisionShape *boxShape = new btBoxShape(boxHalfExtents);
+
+    auto shape = player->body->getCollisionShape();
+
+    player->body->setCollisionShape(boxShape);
+    UnloadModel(player->model);
+    player->model = LoadModelFromMesh(GenMeshCube(2.0, 2.0, 2.0));
+    player->model.materials[0].shader = m_shadowShader;
+    // player->body->updateInertiaTensor();
+    dynamicsWorld->addRigidBody(player->body);
+    dynamicsWorld->updateSingleAabb(player->body);
+
+    delete shape;
 }

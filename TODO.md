@@ -4,6 +4,11 @@
 - [ ] Menu
 - [ ] Shadow
 - [x] Unload entity model
+- [x] Shape Shifting
 - [ ] Powerups
   - [x] Jump
-  - [ ] Speed
+  - [x] Speed
+  - [ ] Slow
+- [x] Color Registry
+- [ ] Input seed
+- [ ] Shape shifting jump bug
