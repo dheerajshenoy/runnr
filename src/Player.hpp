@@ -13,6 +13,7 @@ class Player {
     public:
 
     Player(const btVector3 &position, btDiscreteDynamicsWorld*, Scene *scene);
+    ~Player();
     btCollisionShape* colShape { nullptr };
     btTransform transform;
     float mass { 1.0f };
@@ -28,6 +29,7 @@ class Player {
     void SetJumpForce(const btVector3 &force) noexcept;
     void ResetJumpForce() noexcept;
 
+    Vector4 color;
     void update(const float &dt) noexcept;
     void render() noexcept;
     Model model;

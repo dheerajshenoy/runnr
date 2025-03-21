@@ -31,9 +31,15 @@ btScalar PlayerCollisionCallback::addSingleResult(btManifoldPoint& cp,
             {
                 case PowerupComponent::PowerupType::Jump:
                     m_gameScene->ApplyPowerupEffect(PowerupComponent::PowerupType::Jump);
-                    m_gameScene->DestroyEntity(entity);
-                    m_gameScene->dynamicsWorld->removeCollisionObject(other);
+                    break;
+
+                case PowerupComponent::PowerupType::Fast:
+                    m_gameScene->ApplyPowerupEffect(PowerupComponent::PowerupType::Fast);
+                    break;
             }
+
+            m_gameScene->DestroyEntity(entity);
+            m_gameScene->dynamicsWorld->removeCollisionObject(other);
         }
     }
 

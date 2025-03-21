@@ -1,12 +1,12 @@
 #include "Player.hpp"
 #include "Scene.hpp"
+#include <raylib.h>
 
 Player::Player(const btVector3 &position,
                btDiscreteDynamicsWorld *world,
                Scene *scene)
     : world(world), scene(scene)
 {
-
     model = LoadModelFromMesh(GenMeshSphere(1.0f, 100, 100));
     colShape = new btSphereShape(btScalar(1.0f));
 
@@ -33,6 +33,11 @@ Player::Player(const btVector3 &position,
     m_defaultJumpForce= btVector3(0, 5.0f, 0.0f); // Adjust the force as needed
 
     jumpForce = m_defaultJumpForce;
+}
+
+Player::~Player()
+{
+    UnloadModel(model);
 }
 
 void Player::move(const MoveDirection &dir) noexcept
@@ -82,8 +87,14 @@ bool Player::isOnGround() noexcept
 
 void Player::render() noexcept
 {
+    auto shader = model.materials[0].shader;
+    SetShaderValue(shader,
+                   GetShaderLocation(shader, "objectColor"),
+                   &color,
+                   SHADER_UNIFORM_VEC4);
     body->getMotionState()->getWorldTransform(transform);
     auto pos = transform.getOrigin();
+
     DrawModelEx(model,
                 (Vector3) { pos.getX(),
                     pos.getY(),

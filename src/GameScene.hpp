@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Components.hpp"
 #include "Scene.hpp"
 
 #include "entt/entt.hpp"
@@ -13,10 +14,12 @@
 #include <algorithm>
 #include "Box.hpp"
 #include <time.h>
+#include <unordered_map>
 #include "Powerup.hpp"
 #include "PlayerCollisionCallback.hpp"
 #include "Entity.hpp"
 #include "TimerManager.hpp"
+#include <unordered_set>
 
 class GameScene : public Scene {
 
@@ -87,25 +90,37 @@ class GameScene : public Scene {
     float m_length { 50.0f };
     float m_angle { 0.0f };
 
+    float m_platform_speed { 10.0f };
+
     time_t m_seed;
 
     Box *box { nullptr };
 
     Entity CreatePlatform(const btVector3 &pos,
-                        const btVector3 &size,
-                        const float &angle) noexcept;
+                          const btVector3 &size,
+                          const float &speedZ,
+                          const float &angle) noexcept;
 
     Entity CreatePowerup(const btVector3 &pos,
                          const float &angle) noexcept;
 
     void renderPlatforms() noexcept;
     void renderPowerups() noexcept;
+    void renderActivePowerups() noexcept;
 
     TimerManager m_timerManager;
 
-template<typename... Components>
-auto GetAllEntitiesWith()
-{
-    return registry.view<Components...>();
-}
+    std::unordered_set<PowerupComponent::PowerupType> m_active_powerups {};
+
+    void removePowerup(const PowerupComponent::PowerupType &type) noexcept;
+    void addPowerup(const PowerupComponent::PowerupType &type) noexcept;
+
+
+    void ShapeShiftPlayer() noexcept;
+
+    template<typename... Components>
+    auto GetAllEntitiesWith() noexcept {
+        return registry.view<Components...>();
+    }
+
 };

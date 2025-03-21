@@ -16,7 +16,7 @@ class Entity {
     template <typename T, typename... Args>
     T& AddComponent(Args&&... args) noexcept
         {
-            RUNNR_ASSERT(!HasComponent<T>(), "Entity already has this component");
+            utils::RUNNR_ASSERT(!HasComponent<T>(), "Entity already has this component");
             return m_currentScene->registry.emplace<T>(m_entityHandle, std::forward<Args>(args)...);
         }
 
@@ -30,14 +30,14 @@ class Entity {
     template <typename T>
     T& GetComponent() noexcept
         {
-            RUNNR_ASSERT(HasComponent<T>(), "Entity does not have this component");
+            utils::RUNNR_ASSERT(HasComponent<T>(), "Entity does not have this component");
             return m_currentScene->registry.get<T>(m_entityHandle);
         }
 
     template <typename T>
     void RemoveComponent() noexcept
         {
-            RUNNR_ASSERT(HasComponent<T>(), "Entity does not have this component");
+            utils::RUNNR_ASSERT(HasComponent<T>(), "Entity does not have this component");
             m_currentScene->registry.remove<T>(m_entityHandle);
         }
 

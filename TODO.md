@@ -3,5 +3,7 @@
 - [ ] Sound
 - [ ] Menu
 - [ ] Shadow
-- [X] Unload entity model
-- [X] Powerups
+- [x] Unload entity model
+- [ ] Powerups
+  - [x] Jump
+  - [ ] Speed

@@ -1,4 +1,7 @@
 #include "GameScene.hpp"
+#include "Components.hpp"
+#include "utils.hpp"
+#include <raylib.h>
 
 GameScene::GameScene()
     : Scene()
@@ -79,7 +82,8 @@ void GameScene::render()
     BeginMode3D(m_camera);
     DrawScene();
     EndMode3D();
-    DrawText(TextFormat("FPS: %d", GetFPS()), 10, 10, 20.0, BLACK);
+    DrawText(TextFormat("FPS: %d", GetFPS()), 10, 50, 20.0, WHITE);
+    renderActivePowerups();
     EndDrawing();
 }
 
@@ -132,6 +136,14 @@ void GameScene::initPlayer() noexcept
 {
     player = new Player(btVector3(0, 5.0f, 0), dynamicsWorld, this);
     player->model.materials[0].shader = m_shadowShader;
+    auto c = RED;
+    auto color = (Vector4) {
+        c.r / 255.0,
+        c.g / 255.0,
+        c.b / 255.0,
+        c.a / 255.0
+    };
+    player->color = color;
     dynamicsWorld->addRigidBody(player->body);
 }
 
@@ -140,14 +152,15 @@ void GameScene::spawnPlatform() noexcept
     float randomX = GetRandomValue(-10, 10);
     m_length = GetRandomValue(20, 40);
     float gap = GetRandomValue(0, 10);
+    float width = GetRandomValue(5, 10);
     float nextZ = lastSpawnZ - gap - m_length;
-    // m_angle += 10.0f ;
+    m_angle += utils::GetRandomFloat(-10.0, 10.0);
 
     btVector3 pos(randomX, -5.0f, nextZ);
-    btVector3 size(10.0f, 1.0f, m_length);
+    btVector3 size(width, 1.0f, m_length);
 
     lastSpawnZ = nextZ;
-    auto platform = CreatePlatform(pos, size, m_angle * DEG2RAD);
+    auto platform = CreatePlatform(pos, size, m_platform_speed, m_angle * DEG2RAD);
     CreatePowerup(pos - btVector3(0, -2, 0), m_angle * DEG2RAD);
 }
 
@@ -298,19 +311,31 @@ void GameScene::DestroyEntity(const entt::entity entity) noexcept
 }
 
 Entity GameScene::CreatePlatform(const btVector3 &pos,
-                               const btVector3 &size,
-                               const float &angle) noexcept
+                                 const btVector3 &size,
+                                 const float &speedZ,
+                                 const float &angle) noexcept
 {
     btTransform transform;
     auto platform = CreateEntity("Platform");
     lastPlatformHandle = platform.getHandle();
 
-    platform.AddComponent<PlatformComponent>();
+    auto &pcomp = platform.AddComponent<PlatformComponent>();
+    pcomp.SpeedZ = m_platform_speed;
 
     auto &render = platform.AddComponent<RenderComponent>();
     auto tmp = size * 0.5;
     render.dimension.size = tmp;
     render.model = LoadModelFromMesh(GenMeshCube(size.getX(), size.getY(), size.getZ()));
+    render.color = GREEN;
+    auto color = (Vector4) {
+        render.color.r,
+        render.color.g,
+        render.color.b,
+        render.color.a
+    };
+
+    SetShaderValue(m_shadowShader, GetShaderLocation(m_shadowShader, "objectColor"), &color,
+                   SHADER_UNIFORM_VEC4);
     render.model.materials[0].shader = m_shadowShader;
 
     auto &rb = platform.AddComponent<RigidBodyComponent>();
@@ -339,11 +364,13 @@ void GameScene::updatePlatforms(const float &dt) noexcept
     auto view = GetAllEntitiesWith<PlatformComponent, RigidBodyComponent>();
     for (const auto &platform : view)
     {
-        auto *body = view.get<RigidBodyComponent>(platform).body;
+        Entity entity { platform, this };
+        auto *body = entity.GetComponent<RigidBodyComponent>().body;
+        auto &pcomp = entity.GetComponent<PlatformComponent>();
         auto *motionState = body->getMotionState();
         motionState->getWorldTransform(transform);
         auto &pos = transform.getOrigin();
-        pos.setZ(pos.getZ() + 10.0f * dt);
+        pos.setZ(pos.getZ() + pcomp.SpeedZ * dt);
         transform.setOrigin(pos);
         motionState->setWorldTransform(transform);
         body->setWorldTransform(transform);
@@ -411,11 +438,13 @@ void GameScene::updatePowerups(const float &dt) noexcept
 }
 
 Entity GameScene::CreatePowerup(const btVector3 &pos,
-                              const float &angle) noexcept
+                                const float &angle) noexcept
 {
     btTransform transform;
     auto powerup = CreateEntity("Powerup");
-    powerup.AddComponent<PowerupComponent>(PowerupComponent::PowerupType::Jump);
+
+    auto &pcomp = powerup.AddComponent<PowerupComponent>();
+    pcomp.Type = static_cast<PowerupComponent::PowerupType>(GetRandomValue(0, 2));
     auto &rb = powerup.AddComponent<RigidBodyComponent>();
     auto &render = powerup.AddComponent<RenderComponent>();
     btVector3 size(1.0f, 1.0f, 1.0f);
@@ -459,6 +488,11 @@ void GameScene::renderPlatforms() noexcept
         auto &pos = transform.getOrigin();
         auto rotation = transform.getRotation();
         auto axis = rotation.getAxis();
+        auto color = render.color;
+        auto c = (Vector4) { color.r / 255.0, color.g / 255.0, color.b / 255.0, color.a / 255.0 };
+
+        SetShaderValue(m_shadowShader, GetShaderLocation(m_shadowShader, "objectColor"),
+                       &c, SHADER_UNIFORM_VEC4);
 
         DrawModelEx(render.model,
                     (Vector3) { pos.getX(), pos.getY(), pos.getZ() },
@@ -493,7 +527,6 @@ void GameScene::renderPowerups() noexcept
     }
 }
 
-
 void GameScene::ApplyPowerupEffect(const PowerupComponent::PowerupType &type) noexcept
 {
     switch(type)
@@ -501,13 +534,69 @@ void GameScene::ApplyPowerupEffect(const PowerupComponent::PowerupType &type) no
         case PowerupComponent::PowerupType::Jump:
         {
             player->SetJumpForce(btVector3(0, 10.0f, 0));
+            addPowerup(PowerupComponent::PowerupType::Jump);
             m_timerManager.addTimer(3.0f, [this]() {
                 player->ResetJumpForce();
+                removePowerup(PowerupComponent::PowerupType::Jump);
             });
         }
-            break;
+        break;
+
+        case PowerupComponent::PowerupType::Fast:
+        {
+            m_platform_speed = 20.0f;
+            addPowerup(PowerupComponent::PowerupType::Fast);
+            m_timerManager.addTimer(3.0f, [this]() {
+                removePowerup(PowerupComponent::PowerupType::Fast);
+                m_platform_speed = 10.0f;
+            });
+        }
+        break;
 
     }
 
+
+}
+
+void GameScene::addPowerup(const PowerupComponent::PowerupType &type) noexcept
+{
+    m_active_powerups.insert(type);
+}
+
+void GameScene::removePowerup(const PowerupComponent::PowerupType &type) noexcept
+{
+    m_active_powerups.erase(type);
+}
+
+void GameScene::renderActivePowerups() noexcept
+{
+    float x = 20.0f;
+    float y = 20.0f;
+    float radius = 10.0f;
+    float spacing = 30.0f;
+    for (const auto &powerup : m_active_powerups)
+    {
+        switch(powerup)
+        {
+            case PowerupComponent::PowerupType::Jump:
+                DrawCircle(x, y, radius, BLUE);
+                x += spacing;
+                break;
+
+            case PowerupComponent::PowerupType::Fast:
+                DrawCircle(x, y, radius, RED);
+                x += spacing;
+                break;
+
+            case PowerupComponent::PowerupType::Slow:
+                DrawCircle(x, y, radius, BROWN);
+                x += spacing;
+                break;
+        }
+    }
+}
+
+void GameScene::ShapeShiftPlayer() noexcept
+{
 
 }

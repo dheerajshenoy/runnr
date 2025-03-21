@@ -25,7 +25,6 @@ struct RenderComponent
     } dimension;
 
     Model model;
-
     Color color;
 };
 
@@ -36,10 +35,17 @@ struct PlatformComponent
         Regular = 0
     };
 
-    PlatformType type { PlatformType::Regular };
+    float SpeedZ { 10.0f };
+
+    PlatformType Type { PlatformType::Regular };
 
     PlatformComponent() = default;
+    PlatformComponent(const PlatformType &type, const float &speed)
+        : Type(type), SpeedZ(speed)
+        {}
+
     PlatformComponent(const PlatformComponent &other) = default;
+
 };
 
 struct PowerupComponent
