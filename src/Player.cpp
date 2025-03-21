@@ -1,7 +1,10 @@
 #include "Player.hpp"
+#include "Scene.hpp"
 
-Player::Player(const btVector3 &position, btDiscreteDynamicsWorld *world)
-    : world(world)
+Player::Player(const btVector3 &position,
+               btDiscreteDynamicsWorld *world,
+               Scene *scene)
+    : world(world), scene(scene)
 {
 
     model = LoadModelFromMesh(GenMeshSphere(1.0f, 100, 100));
@@ -124,8 +127,12 @@ bool Player::isPlayerOnGround() noexcept
     return false;
 }
 
-void Player::applyPowerupEffect(btCollisionObject *powerup) noexcept
+void Player::SetJumpForce(const btVector3 &force) noexcept
 {
-    jumpForce = btVector3(0, 10.0f, 0.0);
-    world->removeCollisionObject(powerup);
+    jumpForce = force;
+}
+
+void Player::ResetJumpForce() noexcept
+{
+    jumpForce = m_defaultJumpForce;
 }

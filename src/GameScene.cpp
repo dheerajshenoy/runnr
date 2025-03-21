@@ -1,9 +1,4 @@
 #include "GameScene.hpp"
-#include "Components.hpp"
-#include "Entity.hpp"
-#include "PlayerCollisionCallback.hpp"
-#include <bullet/BulletDynamics/Dynamics/btRigidBody.h>
-#include <raylib.h>
 
 GameScene::GameScene()
     : Scene()
@@ -16,26 +11,26 @@ GameScene::GameScene()
     m_seed = time(nullptr);
     SetRandomSeed(m_seed);
 
-    m_player->body->setCcdMotionThreshold(1e-7);
+    player->body->setCcdMotionThreshold(1e-7);
 }
 
 GameScene::~GameScene()
 {
     //remove the rigidbodies from the dynamics world and delete them
-    for (int i = m_dynamicsWorld->getNumCollisionObjects() - 1; i >= 0; i--)
+    for (int i = dynamicsWorld->getNumCollisionObjects() - 1; i >= 0; i--)
     {
-        btCollisionObject* obj = m_dynamicsWorld->getCollisionObjectArray().at(i);
+        btCollisionObject* obj = dynamicsWorld->getCollisionObjectArray().at(i);
         btRigidBody* body = btRigidBody::upcast(obj);
         if (body && body->getMotionState())
         {
             delete body->getMotionState();
         }
-        m_dynamicsWorld->removeCollisionObject(obj);
+        dynamicsWorld->removeCollisionObject(obj);
         delete obj;
     }
 
-    delete m_player;
-    delete m_dynamicsWorld;
+    delete player;
+    delete dynamicsWorld;
     delete m_solver;
     delete m_overlappingPairCache;
     delete m_dispatcher;
@@ -48,14 +43,14 @@ GameScene::~GameScene()
 void GameScene::update(const float &dt)
 {
 
-    PlayerCollisionCallback playerCollisionCallback(m_player);
-    m_dynamicsWorld->contactTest(m_player->body, playerCollisionCallback);
+    PlayerCollisionCallback playerCollisionCallback(this);
+    dynamicsWorld->contactTest(player->body, playerCollisionCallback);
     UpdateCamera(&m_camera, CAMERA_CUSTOM);
-    m_dynamicsWorld->stepSimulation(dt, 10);
+    dynamicsWorld->stepSimulation(dt, 10);
 
-    if (!m_player->is_on_ground) {
-        if (m_player->isPlayerOnGround()) {
-            m_player->is_on_ground = true;
+    if (!player->is_on_ground) {
+        if (player->isPlayerOnGround()) {
+            player->is_on_ground = true;
         }
     }
 
@@ -70,13 +65,15 @@ void GameScene::update(const float &dt)
     handleInput();
 
     updatePlatforms(dt);
+    updatePowerups(dt);
     cleanupPlatforms();
+    m_timerManager.update(dt);
 }
 
 void GameScene::render()
 {
     // shaderRun(); // TODO: Shadow mapping
-    // m_player->model.materials[0].shader = m_shadowShader;
+    // player->model.materials[0].shader = m_shadowShader;
     BeginDrawing();
     ClearBackground(BLACK);
     BeginMode3D(m_camera);
@@ -92,8 +89,8 @@ void GameScene::initPhysics() noexcept
     m_dispatcher = new btCollisionDispatcher(m_collisionConfiguration);
     m_overlappingPairCache = new btDbvtBroadphase();
     m_solver = new btSequentialImpulseConstraintSolver;
-    m_dynamicsWorld = new btDiscreteDynamicsWorld(m_dispatcher, m_overlappingPairCache, m_solver, m_collisionConfiguration);
-    m_dynamicsWorld->setGravity(btVector3(0, -m_gravity, 0));
+    dynamicsWorld = new btDiscreteDynamicsWorld(m_dispatcher, m_overlappingPairCache, m_solver, m_collisionConfiguration);
+    dynamicsWorld->setGravity(btVector3(0, -m_gravity, 0));
 }
 
 void GameScene::updatePhysics() noexcept
@@ -111,49 +108,31 @@ void GameScene::initCamera() noexcept
 void GameScene::renderSystem() noexcept
 {
     // draw player
-    m_player->render();
-
-    // draw platforms
-    auto view = GetAllEntitiesWith<PlatformComponent>();
-    btTransform transform;
-    for (const auto &e : view)
-    {
-        Entity entity { e, this };
-        auto &render = entity.GetComponent<RenderComponent>();
-        auto &rb = entity.GetComponent<RigidBodyComponent>();
-        auto &size = render.dimension.size;
-        rb.body->getMotionState()->getWorldTransform(transform);
-        auto &pos = transform.getOrigin();
-
-        DrawModel(render.model,
-                  (Vector3) { pos.getX(), pos.getY(), pos.getZ() },
-                  1.0f,
-                  RED);
-    }
-
-    // draw powerups
+    player->render();
+    renderPlatforms();
+    renderPowerups();
 }
 
 void GameScene::handleInput() noexcept
 {
     if (IsKeyDown(KEY_A)) {
-        m_player->move(Player::MoveDirection::LEFT);
+        player->move(Player::MoveDirection::LEFT);
     }
 
     if (IsKeyDown(KEY_D)) {
-        m_player->move(Player::MoveDirection::RIGHT);
+        player->move(Player::MoveDirection::RIGHT);
     }
 
     if (IsKeyDown(KEY_SPACE)) {
-        m_player->jump();
+        player->jump();
     }
 }
 
 void GameScene::initPlayer() noexcept
 {
-    m_player = new Player(btVector3(0, 5.0f, 0), m_dynamicsWorld);
-    m_player->model.materials[0].shader = m_shadowShader;
-    m_dynamicsWorld->addRigidBody(m_player->body);
+    player = new Player(btVector3(0, 5.0f, 0), dynamicsWorld, this);
+    player->model.materials[0].shader = m_shadowShader;
+    dynamicsWorld->addRigidBody(player->body);
 }
 
 void GameScene::spawnPlatform() noexcept
@@ -162,13 +141,14 @@ void GameScene::spawnPlatform() noexcept
     m_length = GetRandomValue(20, 40);
     float gap = GetRandomValue(0, 10);
     float nextZ = lastSpawnZ - gap - m_length;
-    float angle = GetRandomValue(2, 10);
+    // m_angle += 10.0f ;
 
     btVector3 pos(randomX, -5.0f, nextZ);
     btVector3 size(10.0f, 1.0f, m_length);
 
     lastSpawnZ = nextZ;
-    CreatePlatform(pos, size);
+    auto platform = CreatePlatform(pos, size, m_angle * DEG2RAD);
+    CreatePowerup(pos - btVector3(0, -2, 0), m_angle * DEG2RAD);
 }
 
 void GameScene::initShader() noexcept
@@ -284,7 +264,7 @@ void GameScene::DrawScene() noexcept
 
 void GameScene::cameraFollowPlayer() noexcept
 {
-    auto &pos = m_player->transform.getOrigin();
+    auto &pos = player->transform.getOrigin();
     m_camera.position.y = pos.getY() + 10.0f;
     m_camera.position.z = pos.getZ() + 10.0f;
 }
@@ -298,11 +278,17 @@ Entity GameScene::CreateEntity(const std::string &tag) noexcept
 
 void GameScene::DestroyEntity(Entity entity) noexcept
 {
+    if (entity.getHandle() == lastPlatformHandle)
+    {
+        lastPlatformHandle = entt::null;
+    }
+
     if (entity.HasComponent<RenderComponent>())
     {
         auto& render = entity.GetComponent<RenderComponent>();
         UnloadModel(render.model);
     }
+
     registry.destroy(entity);
 }
 
@@ -311,8 +297,9 @@ void GameScene::DestroyEntity(const entt::entity entity) noexcept
     registry.destroy(entity);
 }
 
-void GameScene::CreatePlatform(const btVector3 &pos,
-                               const btVector3 &size) noexcept
+Entity GameScene::CreatePlatform(const btVector3 &pos,
+                               const btVector3 &size,
+                               const float &angle) noexcept
 {
     btTransform transform;
     auto platform = CreateEntity("Platform");
@@ -331,6 +318,9 @@ void GameScene::CreatePlatform(const btVector3 &pos,
 
     transform.setIdentity();
     transform.setOrigin(pos);
+    btQuaternion rotation;
+    rotation.setRotation(btVector3(0, 0, 1), angle);
+    transform.setRotation(rotation);
 
     rb.motionState = new btDefaultMotionState(transform);
     btRigidBody::btRigidBodyConstructionInfo rbInfo(0.0f, rb.motionState, rb.shape);
@@ -338,23 +328,18 @@ void GameScene::CreatePlatform(const btVector3 &pos,
 
     rb.body->setActivationState(DISABLE_DEACTIVATION);
 
-    m_dynamicsWorld->addRigidBody(rb.body);
-}
-
-void GameScene::CreateRigidBody() noexcept
-{
-
+    dynamicsWorld->addRigidBody(rb.body);
+    return platform;
 }
 
 void GameScene::updatePlatforms(const float &dt) noexcept
 {
     // Move platforms towards the player
-
+    btTransform transform;
     auto view = GetAllEntitiesWith<PlatformComponent, RigidBodyComponent>();
     for (const auto &platform : view)
     {
         auto *body = view.get<RigidBodyComponent>(platform).body;
-        btTransform transform;
         auto *motionState = body->getMotionState();
         motionState->getWorldTransform(transform);
         auto &pos = transform.getOrigin();
@@ -364,9 +349,9 @@ void GameScene::updatePlatforms(const float &dt) noexcept
         body->setWorldTransform(transform);
     }
 
-    // Check and Spawn new Platforms
+    if (lastPlatformHandle == entt::null)
+        return;
 
-    btTransform transform;
     auto &rb = view.get<RigidBodyComponent>(lastPlatformHandle);
     rb.body->getMotionState()->getWorldTransform(transform);
 
@@ -374,16 +359,18 @@ void GameScene::updatePlatforms(const float &dt) noexcept
 
     lastSpawnZ = lastPlatformZ;
 
-    if (lastPlatformZ > )
+    if (lastPlatformZ > 10.0f)
     {
         spawnPlatform();
     }
 
 }
 
+
 void GameScene::cleanupPlatforms() noexcept
 {
     btTransform transform;
+
     std::vector<Entity> entitiesToDelete;
     auto view = GetAllEntitiesWith<PlatformComponent, RigidBodyComponent>();
     for (auto platform : view)
@@ -394,15 +381,133 @@ void GameScene::cleanupPlatforms() noexcept
         body->getMotionState()->getWorldTransform(transform);
         auto &pos = transform.getOrigin();
 
-        // TODO: Cleanup platforms
-        // if (pos.getZ() > 0.0f)
-        // {
-        //     m_dynamicsWorld->removeRigidBody(body);
-        //     entitiesToDelete.push_back(entity);
-        // }
+        bool isOffScreen = pos.getZ() - static_cast<btBoxShape*>(rb.shape)->getHalfExtentsWithMargin().getZ() - 10.0f > 0.0f;
+        if (isOffScreen)
+        {
+            dynamicsWorld->removeRigidBody(body);
+            DestroyEntity(entity);
+        }
+
+    }
+}
+
+void GameScene::updatePowerups(const float &dt) noexcept
+{
+    // Move platforms towards the player
+    btTransform transform;
+    auto view = GetAllEntitiesWith<PowerupComponent, RigidBodyComponent>();
+    for (const auto &powerup : view)
+    {
+        auto *body = view.get<RigidBodyComponent>(powerup).body;
+        auto *motionState = body->getMotionState();
+        motionState->getWorldTransform(transform);
+        auto &pos = transform.getOrigin();
+        pos.setZ(pos.getZ() + 10.0f * dt);
+        transform.setOrigin(pos);
+        motionState->setWorldTransform(transform);
+        body->setWorldTransform(transform);
+    }
+
+}
+
+Entity GameScene::CreatePowerup(const btVector3 &pos,
+                              const float &angle) noexcept
+{
+    btTransform transform;
+    auto powerup = CreateEntity("Powerup");
+    powerup.AddComponent<PowerupComponent>(PowerupComponent::PowerupType::Jump);
+    auto &rb = powerup.AddComponent<RigidBodyComponent>();
+    auto &render = powerup.AddComponent<RenderComponent>();
+    btVector3 size(1.0f, 1.0f, 1.0f);
+    auto tmp = size * 0.5;
+    rb.shape = new btBoxShape(tmp);
+    render.dimension.size = tmp;
+    render.model = LoadModelFromMesh(GenMeshCube(size.getX(), size.getY(), size.getZ()));
+    render.model.materials[0].shader = m_shadowShader;
+
+    transform.setIdentity();
+    transform.setOrigin(pos);
+
+    btQuaternion rotation;
+    rotation.setRotation(btVector3(0, 0, 1), angle);
+    transform.setRotation(rotation);
+
+    rb.motionState = new btDefaultMotionState(transform);
+    btRigidBody::btRigidBodyConstructionInfo rbInfo(0.0f, rb.motionState, rb.shape);
+    rb.body = new btRigidBody(rbInfo);
+
+    rb.body->setCollisionFlags(rb.body->getCollisionFlags() | btCollisionObject::CF_NO_CONTACT_RESPONSE);
+
+    dynamicsWorld->addRigidBody(rb.body);
+
+    rb.body->setUserPointer(reinterpret_cast<void*>(static_cast<uintptr_t>(powerup.getHandle())));
+
+    return powerup;
+}
+
+void GameScene::renderPlatforms() noexcept
+{
+    auto view = GetAllEntitiesWith<PlatformComponent>();
+    btTransform transform;
+    for (const auto &e : view)
+    {
+        Entity entity { e, this };
+        auto &render = entity.GetComponent<RenderComponent>();
+        auto &rb = entity.GetComponent<RigidBodyComponent>();
+        auto &size = render.dimension.size;
+        rb.body->getMotionState()->getWorldTransform(transform);
+        auto &pos = transform.getOrigin();
+        auto rotation = transform.getRotation();
+        auto axis = rotation.getAxis();
+
+        DrawModelEx(render.model,
+                    (Vector3) { pos.getX(), pos.getY(), pos.getZ() },
+                    (Vector3) { axis.getX(), axis.getY(), axis.getZ() },
+                    rotation.getAngle() * RAD2DEG,
+                    Vector3One(),
+                    RED);
+    }
+}
+
+void GameScene::renderPowerups() noexcept
+{
+    auto view = GetAllEntitiesWith<PowerupComponent>();
+    btTransform transform;
+    for (const auto &e : view)
+    {
+        Entity entity { e, this };
+        auto &render = entity.GetComponent<RenderComponent>();
+        auto &rb = entity.GetComponent<RigidBodyComponent>();
+        auto &size = render.dimension.size;
+        rb.body->getMotionState()->getWorldTransform(transform);
+        auto &pos = transform.getOrigin();
+        auto rotation = transform.getRotation();
+        auto axis = rotation.getAxis();
+
+        DrawModelEx(render.model,
+                    (Vector3) { pos.getX(), pos.getY(), pos.getZ() },
+                    (Vector3) { axis.getX(), axis.getY(), axis.getZ() },
+                    rotation.getAngle() * RAD2DEG,
+                    Vector3One(),
+                    RED);
+    }
+}
+
+
+void GameScene::ApplyPowerupEffect(const PowerupComponent::PowerupType &type) noexcept
+{
+    switch(type)
+    {
+        case PowerupComponent::PowerupType::Jump:
+        {
+            player->SetJumpForce(btVector3(0, 10.0f, 0));
+            m_timerManager.addTimer(3.0f, [this]() {
+                player->ResetJumpForce();
+            });
+        }
+            break;
 
     }
 
-    for (auto &entity : entitiesToDelete)
-        DestroyEntity(entity);
+
 }

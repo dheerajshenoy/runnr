@@ -5,10 +5,14 @@
 #include <raymath.h>
 #include <vector>
 
+#include "Components.hpp"
+
+class Scene;
+
 class Player {
     public:
 
-    Player(const btVector3 &position, btDiscreteDynamicsWorld*);
+    Player(const btVector3 &position, btDiscreteDynamicsWorld*, Scene *scene);
     btCollisionShape* colShape { nullptr };
     btTransform transform;
     float mass { 1.0f };
@@ -21,17 +25,21 @@ class Player {
         RIGHT,
     };
 
+    void SetJumpForce(const btVector3 &force) noexcept;
+    void ResetJumpForce() noexcept;
+
+    void update(const float &dt) noexcept;
     void render() noexcept;
     Model model;
     void move(const MoveDirection &dir) noexcept;
     void jump() noexcept;
     bool isOnGround() noexcept;
     bool isPlayerOnGround() noexcept;
-    void applyPowerupEffect(btCollisionObject *powerup) noexcept;
 
     btTransform position() noexcept;
 
     btVector3 jumpForce;
+    Scene *scene { nullptr };
 
     private:
     btVector3 m_defaultJumpForce;

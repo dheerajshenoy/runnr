@@ -47,12 +47,6 @@ class Entity {
             return m_currentScene->registry.all_of<T>(m_entityHandle);
         }
 
-    TransformComponent& Transform() noexcept
-        {
-            RUNNR_ASSERT(HasComponent<TransformComponent>(), "Entity does not have transform component");
-            return m_currentScene->registry.get<TransformComponent>(m_entityHandle);
-        }
-
     operator bool() const { return m_entityHandle != entt::null; }
     operator entt::entity() const { return m_entityHandle; }
     operator uint32_t() const { return (uint32_t) m_entityHandle; }

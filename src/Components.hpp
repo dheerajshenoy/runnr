@@ -16,11 +16,6 @@ struct TagComponent
     std::string Tag;
 };
 
-struct TransformComponent
-{
-    btTransform Transform;
-};
-
 struct RenderComponent
 {
     union
@@ -48,7 +43,16 @@ struct PlatformComponent
 };
 
 struct PowerupComponent
-{};
+{
+    enum class PowerupType
+    {
+        Jump = 0,
+        Fast,
+        Slow,
+    };
+
+    PowerupType Type { PowerupType::Jump };
+};
 
 struct EnemyComponent
 {};

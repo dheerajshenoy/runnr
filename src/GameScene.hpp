@@ -7,17 +7,7 @@
 #include "Player.hpp"
 #include <raylib.h>
 #include <raymath.h>
-#include <bullet/BulletCollision/BroadphaseCollision/btDbvtBroadphase.h>
-#include <bullet/BulletCollision/BroadphaseCollision/btBroadphaseInterface.h>
-#include <bullet/BulletCollision/CollisionDispatch/btCollisionDispatcher.h>
-#include <bullet/BulletCollision/CollisionDispatch/btCollisionObject.h>
-#include <bullet/BulletCollision/CollisionDispatch/btDefaultCollisionConfiguration.h>
-#include <bullet/BulletCollision/CollisionShapes/btCollisionShape.h>
-#include <bullet/BulletDynamics/ConstraintSolver/btSequentialImpulseConstraintSolver.h>
-#include <bullet/BulletDynamics/Dynamics/btDiscreteDynamicsWorld.h>
-#include <bullet/BulletCollision/CollisionShapes/btSphereShape.h>
-#include <bullet/btBulletDynamicsCommon.h>
-#include <bullet/LinearMath/btAlignedObjectArray.h>
+#include "bullet.hpp"
 #include "Platform.hpp"
 #include <rlgl.h>
 #include <algorithm>
@@ -26,12 +16,15 @@
 #include "Powerup.hpp"
 #include "PlayerCollisionCallback.hpp"
 #include "Entity.hpp"
+#include "TimerManager.hpp"
 
 class GameScene : public Scene {
 
     public:
     GameScene();
     ~GameScene();
+
+    Player *player { nullptr };
 
     void update(const float &dt);
     void render();
@@ -44,8 +37,10 @@ class GameScene : public Scene {
     void DestroyEntity(const Entity entity) noexcept;
     void DestroyEntity(const entt::entity entity) noexcept;
 
+    void ApplyPowerupEffect(const PowerupComponent::PowerupType &type) noexcept;
+    btDiscreteDynamicsWorld *dynamicsWorld { nullptr };
+
     private:
-    Player *m_player { nullptr };
     float m_gravity = 10.0f;
     void handleInput() noexcept;
     void renderSystem() noexcept;
@@ -55,6 +50,7 @@ class GameScene : public Scene {
     void initShader() noexcept;
     void updatePhysics() noexcept;
     void updatePlatforms(const float &dt) noexcept;
+    void updatePowerups(const float &dt) noexcept;
     void cleanupPlatforms() noexcept;
     void spawnPlatform() noexcept;
     Camera3D m_camera { 0 };
@@ -63,7 +59,6 @@ class GameScene : public Scene {
     btCollisionDispatcher *m_dispatcher { nullptr };
     btBroadphaseInterface *m_overlappingPairCache { nullptr };
     btSequentialImpulseConstraintSolver *m_solver { nullptr };
-    btDiscreteDynamicsWorld *m_dynamicsWorld { nullptr };
 
     // Shader Stuff
     Camera3D m_lightCam { 0 };
@@ -90,13 +85,23 @@ class GameScene : public Scene {
     float lastSpawnZ { 50.0f };
     entt::entity lastPlatformHandle { entt::null };
     float m_length { 50.0f };
+    float m_angle { 0.0f };
 
     time_t m_seed;
 
     Box *box { nullptr };
 
-    void CreatePlatform(const btVector3 &pos, const btVector3 &size) noexcept;
-    void CreateRigidBody() noexcept;
+    Entity CreatePlatform(const btVector3 &pos,
+                        const btVector3 &size,
+                        const float &angle) noexcept;
+
+    Entity CreatePowerup(const btVector3 &pos,
+                         const float &angle) noexcept;
+
+    void renderPlatforms() noexcept;
+    void renderPowerups() noexcept;
+
+    TimerManager m_timerManager;
 
 template<typename... Components>
 auto GetAllEntitiesWith()

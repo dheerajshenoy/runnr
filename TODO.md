@@ -3,4 +3,5 @@
 - [ ] Sound
 - [ ] Menu
 - [ ] Shadow
-- [ ] Unload entity model
+- [X] Unload entity model
+- [X] Powerups

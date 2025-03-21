@@ -1,8 +1,10 @@
 #include "PlayerCollisionCallback.hpp"
-#include "Player.hpp"
+#include "Components.hpp"
+#include "GameScene.hpp"
+#include "Entity.hpp"
 
-PlayerCollisionCallback::PlayerCollisionCallback(Player *player)
-    : m_player(player)
+PlayerCollisionCallback::PlayerCollisionCallback(GameScene *scene)
+    : m_gameScene(scene)
 {}
 
 btScalar PlayerCollisionCallback::addSingleResult(btManifoldPoint& cp,
@@ -14,10 +16,25 @@ btScalar PlayerCollisionCallback::addSingleResult(btManifoldPoint& cp,
     const btCollisionObject* objA = colObj0Wrap->getCollisionObject();
     const btCollisionObject* objB = colObj1Wrap->getCollisionObject();
 
-    btCollisionObject* other = (objA == m_player->body) ? (btCollisionObject*)objB : (btCollisionObject*)objA;
+    btCollisionObject* other = (objA == m_gameScene->player->body) ? (btCollisionObject*)objB : (btCollisionObject*)objA;
 
     if (auto ptr = other->getUserPointer())
     {
+        auto handle = static_cast<entt::entity>(reinterpret_cast<uintptr_t>(ptr));
+        Entity entity { handle, m_gameScene };
+
+        if (entity.HasComponent<PowerupComponent>())
+        {
+            auto &powerup = entity.GetComponent<PowerupComponent>();
+
+            switch(powerup.Type)
+            {
+                case PowerupComponent::PowerupType::Jump:
+                    m_gameScene->ApplyPowerupEffect(PowerupComponent::PowerupType::Jump);
+                    m_gameScene->DestroyEntity(entity);
+                    m_gameScene->dynamicsWorld->removeCollisionObject(other);
+            }
+        }
     }
 
     return 0;

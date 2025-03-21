@@ -1,12 +1,13 @@
 #pragma once
 
 #include "bullet.hpp"
-class Player;
+
+class GameScene;
 
 class PlayerCollisionCallback : public btCollisionWorld::ContactResultCallback
 {
     public:
-    PlayerCollisionCallback(Player *player);
+    PlayerCollisionCallback(GameScene *gameScene);
 
     btScalar addSingleResult(btManifoldPoint& cp,
                              const btCollisionObjectWrapper* colObj0Wrap,
@@ -15,6 +16,6 @@ class PlayerCollisionCallback : public btCollisionWorld::ContactResultCallback
                              int partId1, int index1) override;
 
     private:
-    Player *m_player { nullptr };
+    GameScene *m_gameScene { nullptr };
 
 };
