@@ -25,7 +25,7 @@ struct RenderComponent
     } dimension;
 
     Model model;
-    Color color;
+    Vector4 color;
 };
 
 struct PlatformComponent

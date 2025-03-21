@@ -17,10 +17,9 @@ add_executable(${PROJECT_NAME}
     src/runnr.cpp
     src/GameScene.cpp
     src/Player.cpp
-    src/Platform.cpp
-    src/Powerup.cpp
     src/PlayerCollisionCallback.cpp
-    src/Entity.cpp)
+    src/Entity.cpp
+    src/ColorRegistry.cpp)
 
 target_include_directories(${PROJECT_NAME} PRIVATE ${BULLET_INCLUDE_DIRS})
 

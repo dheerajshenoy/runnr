@@ -9,17 +9,17 @@
 #include <raylib.h>
 #include <raymath.h>
 #include "bullet.hpp"
-#include "Platform.hpp"
 #include <rlgl.h>
 #include <algorithm>
 #include "Box.hpp"
 #include <time.h>
 #include <unordered_map>
-#include "Powerup.hpp"
 #include "PlayerCollisionCallback.hpp"
 #include "Entity.hpp"
 #include "TimerManager.hpp"
 #include <unordered_set>
+#include "utils.hpp"
+#include "ColorRegistry.hpp"
 
 class GameScene : public Scene {
 
@@ -122,5 +122,7 @@ class GameScene : public Scene {
     auto GetAllEntitiesWith() noexcept {
         return registry.view<Components...>();
     }
+
+    ColorRegistry m_colorRegistry;
 
 };

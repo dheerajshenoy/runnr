@@ -1,20 +1,19 @@
 #include "GameScene.hpp"
-#include "Components.hpp"
-#include "utils.hpp"
-#include <raylib.h>
 
 GameScene::GameScene()
     : Scene()
 {
+    m_colorRegistry.Initialize();
     initShader();
     initCamera();
     initPhysics();
     initPlayer();
     spawnPlatform();
     m_seed = time(nullptr);
-    SetRandomSeed(m_seed);
+    utils::SetRandomSeed(m_seed);
 
-    player->body->setCcdMotionThreshold(1e-7);
+
+    // player->body->setCcdMotionThreshold(1e-7);
 }
 
 GameScene::~GameScene()
@@ -135,24 +134,17 @@ void GameScene::handleInput() noexcept
 void GameScene::initPlayer() noexcept
 {
     player = new Player(btVector3(0, 5.0f, 0), dynamicsWorld, this);
+    player->color = m_colorRegistry.GetDefaultColor(ColorKey::PLAYER);
     player->model.materials[0].shader = m_shadowShader;
-    auto c = RED;
-    auto color = (Vector4) {
-        c.r / 255.0,
-        c.g / 255.0,
-        c.b / 255.0,
-        c.a / 255.0
-    };
-    player->color = color;
     dynamicsWorld->addRigidBody(player->body);
 }
 
 void GameScene::spawnPlatform() noexcept
 {
-    float randomX = GetRandomValue(-10, 10);
-    m_length = GetRandomValue(20, 40);
-    float gap = GetRandomValue(0, 10);
-    float width = GetRandomValue(5, 10);
+    float randomX = utils::GetRandomFloat(-10, 10);
+    m_length = utils::GetRandomFloat(20, 40);
+    float gap = utils::GetRandomFloat(0, 10);
+    float width = utils::GetRandomFloat(5, 10);
     float nextZ = lastSpawnZ - gap - m_length;
     m_angle += utils::GetRandomFloat(-10.0, 10.0);
 
@@ -326,16 +318,15 @@ Entity GameScene::CreatePlatform(const btVector3 &pos,
     auto tmp = size * 0.5;
     render.dimension.size = tmp;
     render.model = LoadModelFromMesh(GenMeshCube(size.getX(), size.getY(), size.getZ()));
-    render.color = GREEN;
-    auto color = (Vector4) {
-        render.color.r,
-        render.color.g,
-        render.color.b,
-        render.color.a
+    render.color = (Vector4) {
+        0.5,
+        0.0,
+        0.0,
+        1.0
     };
 
-    SetShaderValue(m_shadowShader, GetShaderLocation(m_shadowShader, "objectColor"), &color,
-                   SHADER_UNIFORM_VEC4);
+    SetShaderValue(m_shadowShader, GetShaderLocation(m_shadowShader, "objectColor"),
+                   &render.color, SHADER_UNIFORM_VEC4);
     render.model.materials[0].shader = m_shadowShader;
 
     auto &rb = platform.AddComponent<RigidBodyComponent>();
@@ -444,15 +435,29 @@ Entity GameScene::CreatePowerup(const btVector3 &pos,
     auto powerup = CreateEntity("Powerup");
 
     auto &pcomp = powerup.AddComponent<PowerupComponent>();
-    pcomp.Type = static_cast<PowerupComponent::PowerupType>(GetRandomValue(0, 2));
+    pcomp.Type = static_cast<PowerupComponent::PowerupType>(utils::GetRandomInt(0, 2));
+
     auto &rb = powerup.AddComponent<RigidBodyComponent>();
     auto &render = powerup.AddComponent<RenderComponent>();
+
     btVector3 size(1.0f, 1.0f, 1.0f);
     auto tmp = size * 0.5;
     rb.shape = new btBoxShape(tmp);
     render.dimension.size = tmp;
     render.model = LoadModelFromMesh(GenMeshCube(size.getX(), size.getY(), size.getZ()));
     render.model.materials[0].shader = m_shadowShader;
+
+    switch(pcomp.Type)
+    {
+        case PowerupComponent::PowerupType::Jump:
+            render.color = { 0.5, 0.5, 0.5, 1.0 };
+            break;
+
+        case PowerupComponent::PowerupType::Fast:
+            render.color = { 0.0, 1.0, 0.5, 1.0 };
+            break;
+
+    }
 
     transform.setIdentity();
     transform.setOrigin(pos);
@@ -488,18 +493,16 @@ void GameScene::renderPlatforms() noexcept
         auto &pos = transform.getOrigin();
         auto rotation = transform.getRotation();
         auto axis = rotation.getAxis();
-        auto color = render.color;
-        auto c = (Vector4) { color.r / 255.0, color.g / 255.0, color.b / 255.0, color.a / 255.0 };
 
-        SetShaderValue(m_shadowShader, GetShaderLocation(m_shadowShader, "objectColor"),
-                       &c, SHADER_UNIFORM_VEC4);
+        SetShaderValue(m_shadowShader, GetShaderLocation(m_shadowShader, "objectColor"), &render.color,
+                       SHADER_UNIFORM_VEC4);
 
         DrawModelEx(render.model,
                     (Vector3) { pos.getX(), pos.getY(), pos.getZ() },
                     (Vector3) { axis.getX(), axis.getY(), axis.getZ() },
                     rotation.getAngle() * RAD2DEG,
                     Vector3One(),
-                    RED);
+                    WHITE);
     }
 }
 
@@ -517,6 +520,9 @@ void GameScene::renderPowerups() noexcept
         auto &pos = transform.getOrigin();
         auto rotation = transform.getRotation();
         auto axis = rotation.getAxis();
+
+        SetShaderValue(m_shadowShader, GetShaderLocation(m_shadowShader, "objectColor"),
+                       &render.color, SHADER_UNIFORM_VEC4);
 
         DrawModelEx(render.model,
                     (Vector3) { pos.getX(), pos.getY(), pos.getZ() },
