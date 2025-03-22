@@ -67,23 +67,29 @@ class GameScene : public Scene {
     Camera3D m_lightCam { 0 };
     int m_lightDirLoc;
 
-    Vector3 m_lightDir { Vector3Normalize((Vector3){ 0.35f, -1.0f, -0.35f }) };
+    Vector3 m_lightDir { (Vector3){ 0.35f, -1.0f, 0.35f } };
     Color m_lightColor { WHITE };
-    float m_ambient[4] = {0.1f, 0.1f, 0.1f, 1.0f};
+    float m_ambient[4] = {0.5f, 0.5f, 0.5f, 1.0f};
     Shader m_shadowShader;
 
     int m_lightVPLoc;
     int m_shadowMapLoc;
     int m_shadowMapResolution = 2048; // Higher size = more accurate shadows
-    RenderTexture m_shadowMapTexture;
+    RenderTexture2D m_shadowMapTexture;
     void shaderRun() noexcept;
     Matrix m_lightView;
     Matrix m_lightProj;
     RenderTexture2D LoadShadowmapRenderTexture(const int &width,
                                                const int &height) noexcept;
     void UnloadShadowmapRenderTexture(RenderTexture2D target) noexcept;
-    void DrawScene() noexcept;
     void cameraFollowPlayer() noexcept;
+
+    void updateTrail() noexcept;
+    void renderTrail() noexcept;
+
+    Vector3 lastPlatformPos;
+    std::vector<Vector3> m_trailPositions;
+    const int m_maxTrailLength = 50;
 
     float lastSpawnZ { 50.0f };
     entt::entity lastPlatformHandle { entt::null };

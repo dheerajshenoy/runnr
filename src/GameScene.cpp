@@ -1,4 +1,5 @@
 #include "GameScene.hpp"
+#include <raymath.h>
 
 GameScene::GameScene()
     : Scene()
@@ -44,7 +45,6 @@ GameScene::~GameScene()
 void GameScene::update(const float &dt)
 {
 
-    printf("%d\n", player->isPlayerOnGround());
     PlayerCollisionCallback playerCollisionCallback(this);
     dynamicsWorld->contactTest(player->body, playerCollisionCallback);
     UpdateCamera(&m_camera, CAMERA_CUSTOM);
@@ -63,6 +63,7 @@ void GameScene::update(const float &dt)
     m_lightCam.position = Vector3Scale(m_lightDir, -15.0f);
     SetShaderValue(m_shadowShader, m_lightDirLoc, &m_lightDir, SHADER_UNIFORM_VEC3);
 
+    // updateTrail();
     cameraFollowPlayer();
     handleInput();
 
@@ -74,12 +75,12 @@ void GameScene::update(const float &dt)
 
 void GameScene::render()
 {
-    // shaderRun(); // TODO: Shadow mapping
-    // player->model.materials[0].shader = m_shadowShader;
     BeginDrawing();
+    shaderRun(); // shadow mapping
     ClearBackground(BLACK);
     BeginMode3D(m_camera);
-    DrawScene();
+    renderSystem();
+    // renderTrail();
     EndMode3D();
     DrawText(TextFormat("FPS: %d", GetFPS()), 10, 50, 20.0, WHITE);
     renderActivePowerups();
@@ -110,7 +111,6 @@ void GameScene::initCamera() noexcept
 
 void GameScene::renderSystem() noexcept
 {
-    // draw player
     player->render();
     renderPlatforms();
     renderPowerups();
@@ -187,18 +187,16 @@ void GameScene::initShader() noexcept
                    &m_shadowMapResolution,
                    SHADER_UNIFORM_INT);
 
-    RenderTexture2D shadowMap = LoadShadowmapRenderTexture(m_shadowMapResolution, m_shadowMapResolution);
+    m_shadowMapTexture = LoadShadowmapRenderTexture(m_shadowMapResolution, m_shadowMapResolution);
     m_lightCam.position = Vector3Scale(m_lightDir, -15.0f);
     m_lightCam.target = Vector3Zero();
-    // Use an orthographic projection for directional lights
     m_lightCam.projection = CAMERA_ORTHOGRAPHIC;
     m_lightCam.up = (Vector3){ 0.0f, 1.0f, 0.0f };
-    m_lightCam.fovy = 20.0f;
+    m_lightCam.fovy = 30.0f;
 }
 
 void GameScene::shaderRun() noexcept
 {
-    BeginDrawing();
     // First, render all objects into the shadowmap
     // The idea is, we record all the objects' depths (as rendered from the light source's point of view) in a buffer
     // Anything that is "visible" to the light is in light, anything that isn't is in shadow
@@ -212,7 +210,7 @@ void GameScene::shaderRun() noexcept
         {
             m_lightView = rlGetMatrixModelview();
             m_lightProj = rlGetMatrixProjection();
-            DrawScene();
+            renderSystem();
         }
         EndMode3D();
     }
@@ -275,11 +273,6 @@ void GameScene::UnloadShadowmapRenderTexture(RenderTexture2D target) noexcept
     }
 }
 
-void GameScene::DrawScene() noexcept
-{
-    renderSystem();
-}
-
 void GameScene::cameraFollowPlayer() noexcept
 {
     auto &pos = player->transform.getOrigin();
@@ -331,12 +324,7 @@ Entity GameScene::CreatePlatform(const btVector3 &pos,
     auto tmp = size * 0.5;
     render.dimension.size = tmp;
     render.model = LoadModelFromMesh(GenMeshCube(size.getX(), size.getY(), size.getZ()));
-    render.color = (Vector4) {
-        0.5,
-        0.0,
-        0.0,
-        1.0
-    };
+    render.color = m_colorRegistry.GetDefaultColor(ColorKey::PLATFORM_REGULAR);
 
     SetShaderValue(m_shadowShader, GetShaderLocation(m_shadowShader, "objectColor"),
                    &render.color, SHADER_UNIFORM_VEC4);
@@ -386,7 +374,15 @@ void GameScene::updatePlatforms(const float &dt) noexcept
     auto &rb = view.get<RigidBodyComponent>(lastPlatformHandle);
     rb.body->getMotionState()->getWorldTransform(transform);
 
-    float lastPlatformZ = transform.getOrigin().getZ();
+    auto pos = transform.getOrigin();
+
+    lastPlatformPos = {
+        pos.getX(),
+        pos.getY(),
+        pos.getZ()
+    };
+
+    float lastPlatformZ = pos.getZ();
 
     lastSpawnZ = lastPlatformZ;
 
@@ -463,11 +459,11 @@ Entity GameScene::CreatePowerup(const btVector3 &pos,
     switch(pcomp.Type)
     {
         case PowerupComponent::PowerupType::Jump:
-            render.color = { 0.5, 0.5, 0.5, 1.0 };
+            render.color = m_colorRegistry.GetDefaultColor(ColorKey::POWERUP_JUMP);
             break;
 
         case PowerupComponent::PowerupType::Fast:
-            render.color = { 0.0, 1.0, 0.5, 1.0 };
+            render.color = m_colorRegistry.GetDefaultColor(ColorKey::POWERUP_FAST);
             break;
 
     }
@@ -598,17 +594,17 @@ void GameScene::renderActivePowerups() noexcept
         switch(powerup)
         {
             case PowerupComponent::PowerupType::Jump:
-                DrawCircle(x, y, radius, BLUE);
+                DrawCircle(x, y, radius, m_colorRegistry.GetDefaultColor255rl(ColorKey::POWERUP_JUMP));
                 x += spacing;
                 break;
 
             case PowerupComponent::PowerupType::Fast:
-                DrawCircle(x, y, radius, RED);
+                DrawCircle(x, y, radius, m_colorRegistry.GetDefaultColor255rl(ColorKey::POWERUP_FAST));
                 x += spacing;
                 break;
 
             case PowerupComponent::PowerupType::Slow:
-                DrawCircle(x, y, radius, BROWN);
+                DrawCircle(x, y, radius, m_colorRegistry.GetDefaultColor255rl(ColorKey::POWERUP_SLOW));
                 x += spacing;
                 break;
         }
@@ -678,4 +674,16 @@ void GameScene::shapeShiftToBox() noexcept
     dynamicsWorld->updateSingleAabb(player->body);
 
     delete shape;
+}
+
+void GameScene::updateTrail() noexcept
+{
+    if (m_trailPositions.size() > m_maxTrailLength)
+    {
+        m_trailPositions.erase(m_trailPositions.begin());
+    }
+}
+
+void GameScene::renderTrail() noexcept
+{
 }

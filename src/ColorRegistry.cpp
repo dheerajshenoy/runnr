@@ -13,3 +13,14 @@ Vector4 ColorRegistry::GetDefaultColor(const ColorKey &key) noexcept
 {
     return m_defaultColors[key];
 }
+
+Color ColorRegistry::GetDefaultColor255rl(const ColorKey &key) noexcept
+{
+    auto color = m_defaultColors[key];
+    return {
+        color.x * 255.0,
+        color.y * 255.0,
+        color.z * 255.0,
+        color.w * 255.0
+    };
+}

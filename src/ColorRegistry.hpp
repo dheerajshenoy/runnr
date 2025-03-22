@@ -18,6 +18,7 @@ class ColorRegistry
     public:
     static void Initialize() noexcept;
     static Vector4 GetDefaultColor(const ColorKey &key) noexcept;
+    static Color GetDefaultColor255rl(const ColorKey &key) noexcept;
 
     private:
     static inline std::unordered_map<ColorKey, Vector4> m_defaultColors;

@@ -41,6 +41,8 @@ Player::Player(const btVector3 &position,
     body->setRestitution(m_restitution);
     body->setActivationState(DISABLE_DEACTIVATION);
 
+    body->setAngularFactor(btVector3(1, 0, 1)); // rotation along y axis dismissed
+
     m_defaultJumpForce= btVector3(0, 5.0f, 0.0f); // Adjust the force as needed
 
     jumpForce = m_defaultJumpForce;

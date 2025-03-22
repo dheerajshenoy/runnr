@@ -1,3 +1,4 @@
+- [x] Platforms
 - [ ] Add trails
 - [ ] Enemies
 - [ ] Sound
